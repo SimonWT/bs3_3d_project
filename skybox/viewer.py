@@ -325,8 +325,6 @@ class Viewer(Node):
             self.key_handler(key)
 
 # -------------- OpenGL Texture Wrapper ---------------------------------------
-
-
 class Texture:
     """ Helper class to create and automatically destroy textures """
 
@@ -406,9 +404,40 @@ class TexturedPlane(Mesh):
         super().draw(projection, view, model, primitives)
 
 # -------------- Example texture mesh class ----------------------------------
-
-
 class TexturedMesh(Mesh):
+    """ Simple first textured object """
+
+    def __init__(self, shader, texture, attributes, index=None):
+        super().__init__(shader, attributes, index)
+
+        loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
+        self.loc['diffuse_map'] = loc
+        # setup texture and upload it to GPU
+        self.texture = texture
+
+    def key_handler(self, key):
+        # some interactive elements
+        if key == glfw.KEY_F6:
+            self.wrap_mode = next(self.wrap)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+        if key == glfw.KEY_F7:
+            self.filter_mode = next(self.filter)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+
+    def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+        GL.glUseProgram(self.shader.glid)
+
+        # texture access setups
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
+        GL.glUniform1i(self.loc['diffuse_map'], 0)
+        super().draw(projection, view, model, primitives)
+
+        # leave clean state for easier debugging
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        GL.glUseProgram(0)
+
+class TexturedCubeMapMesh(Mesh):
     """ Simple first textured object """
 
     def __init__(self, shader, texture, attributes, index=None):
@@ -444,80 +473,6 @@ class TexturedMesh(Mesh):
         # leave clean state for easier debugging
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
         GL.glUseProgram(0)
-
-
-def load_skybox(file, shader, tex_files=None):
-    skyboxVertices = np.array(
-    ((-1,  1, -1),
-    (-1, -1, -1),
-     (1, -1, -1),
-     (1, -1, -1),
-     (1,  1, -1),
-    (-1,  1, -1),
-
-    (-1, -1,  1),
-    (-1, -1, -1),
-    (-1,  1, -1),
-    (-1,  1, -1),
-    (-1,  1,  1),
-    (-1, -1,  1),
-
-    (1, -1, -1),
-    (1, -1,  1),
-    (1,  1,  1),
-    (1,  1,  1),
-    (1,  1, -1),
-    (1, -1, -1),
-
-    (-1, -1,  1),
-    (-1,  1,  1),
-    ( 1,  1,  1),
-     (1,  1,  1),
-     (1, -1,  1),
-    (-1, -1,  1),
-
-    (-1,  1, -1),
-     (1,  1, -1),
-     (1,  1,  1),
-     (1,  1,  1),
-    (-1,  1,  1),
-    (-1,  1, -1),
-
-    (-1, -1, -1),
-    (-1, -1,  1),
-    ( 1, -1, -1),
-    ( 1, -1, -1),
-    (-1, -1,  1),
-    ( 1, -1,  1)), np.float32, copy=False)
-
-    # print(skyboxVertices)
-
-    cubemapTexture = SkyboxTexture(tex_files)
-
-    glid = GL.glGenVertexArrays(1)
-    buffer = GL.glGenBuffers(1)
-    GL.glBindVertexArray(glid)
-    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer)
-    GL.glBufferData(GL.GL_ARRAY_BUFFER, np.array(skyboxVertices, np.int32, copy=False), GL.GL_STATIC_DRAW)
-    GL.glEnableVertexAttribArray(0)
-    GL.glVertexAttribPointer(
-                    0, 3, GL.GL_FLOAT, False, 0, None)
-
-    GL.glUseProgram(shader.glid)
-    # texture access setups
-    GL.glActiveTexture(GL.GL_TEXTURE0)
-    GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, cubemapTexture.glid)
-
-    names = ['view', 'projection', 'model']
-    loc = {n: GL.glGetUniformLocation(shader.glid, n) for n in names}
-
-    GL.glUniformMatrix4fv(loc['view'], 1, True, view)
-    GL.glUniformMatrix4fv(loc['projection'], 1, True, projection)
-    GL.glUniformMatrix4fv(loc['model'], 1, True, model)
-
-    GL.glDrawArrays(GL.GL_TRINAGLES)
-
-
 
 class SkyboxTexture:
     """ Helper class to create and automatically destroy textures """
@@ -556,11 +511,8 @@ class SkyboxTexture:
     def __del__(self):  # delete GL texture from GPU when object dies
         GL.glDeleteTextures(self.glid)
 
-def load_skybox2(file, shader, tex_files=None):
+def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
-    GL.glEnable(GL.GL_CULL_FACE)
-    GL.glCullFace(GL.GL_BACK)
-    GL.glDisable(GL.GL_DEPTH_TEST)
     try:
         pp = assimpcy.aiPostProcessSteps
         flags = pp.aiProcess_Triangulate | pp.aiProcess_FlipUVs
@@ -574,12 +526,6 @@ def load_skybox2(file, shader, tex_files=None):
     for mat in scene.mMaterials:
         if not tex_files and 'TEXTURE_BASE' in mat.properties:  # texture token
             name = os.path.basename(mat.properties['TEXTURE_BASE'])
-            # search texture in file's whole subdir since path often screwed up
-            # paths = os.walk(path, followlinks=True)
-            # found = [os.path.join(d, f) for d, _, n in paths for f in n
-            #          if name.startswith(f) or f.startswith(name)]
-            # assert found, 'Cannot find texture %s in %s subtree' % (name, path)
-            # tex_files = found[0]
         if tex_files:
             mat.properties['diffuse_map'] = SkyboxTexture(tex_files)
 
@@ -589,8 +535,45 @@ def load_skybox2(file, shader, tex_files=None):
         mat = scene.mMaterials[mesh.mMaterialIndex].properties
         assert mat['diffuse_map'], "Trying to map using a textureless material"
         attributes = [mesh.mVertices, mesh.mTextureCoords[0]]
-        mesh = TexturedMesh(
+        mesh = TexturedCubeMapMesh(
             shader, mat['diffuse_map'], attributes, mesh.mFaces)
+        meshes.append(mesh)
+
+    size = sum((mesh.mNumFaces for mesh in scene.mMeshes))
+    print('Loaded %s\t(%d meshes, %d faces)' % (file, len(meshes), size))
+    return meshes
+
+def load_textured(file, shader, tex_file=None):
+    """ load resources from file using assimp, return list of TexturedMesh """
+    try:
+        pp = assimpcy.aiPostProcessSteps
+        flags = pp.aiProcess_Triangulate | pp.aiProcess_FlipUVs
+        scene = assimpcy.aiImportFile(file, flags)
+    except assimpcy.all.AssimpError as exception:
+        print('ERROR loading', file + ': ', exception.args[0].decode())
+        return []
+
+    # Note: embedded textures not supported at the moment
+    path = os.path.dirname(file) if os.path.dirname(file) != '' else './'
+    for mat in scene.mMaterials:
+        if not tex_file and 'TEXTURE_BASE' in mat.properties:  # texture token
+            name = os.path.basename(mat.properties['TEXTURE_BASE'])
+            # search texture in file's whole subdir since path often screwed up
+            paths = os.walk(path, followlinks=True)
+            found = [os.path.join(d, f) for d, _, n in paths for f in n
+                     if name.startswith(f) or f.startswith(name)]
+            assert found, 'Cannot find texture %s in %s subtree' % (name, path)
+            tex_file = found[0]
+        if tex_file:
+            mat.properties['diffuse_map'] = Texture(tex_file)
+
+    # prepare textured mesh
+    meshes = []
+    for mesh in scene.mMeshes:
+        mat = scene.mMaterials[mesh.mMaterialIndex].properties
+        assert mat['diffuse_map'], "Trying to map using a textureless material"
+        attributes = [mesh.mVertices, mesh.mTextureCoords[0]]
+        mesh = TexturedMesh(shader, mat['diffuse_map'], attributes, mesh.mFaces)
         meshes.append(mesh)
 
     size = sum((mesh.mNumFaces for mesh in scene.mMeshes))
@@ -620,13 +603,13 @@ def main():
         "./skybox/bottom.jpg",
         "./skybox/front.jpg",
         "./skybox/back.jpg"]
-    GL.glEnable(GL.GL_CULL_FACE)
-    GL.glCullFace(GL.GL_BACK)
-    GL.glDisable(GL.GL_DEPTH_TEST)
-    for mesh in load_skybox2("./cube/cube.obj", sky_shader, sky_texs):
+
+    for mesh in load_skybox("./skybox/skybox.obj", sky_shader, sky_texs):
         viewer.add(mesh)
-    GL.glEnable(GL.GL_DEPTH_TEST)
-    # load_skybox("./cube/cube.obj", sky_shader, sky_texs)
+
+     # viewer.add(TexturedPlane("./grass.png", shader))
+    for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
+        viewer.add(mesh)
 
     # if len(sys.argv) != 2:
     #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
