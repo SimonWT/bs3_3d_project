@@ -70,6 +70,9 @@ class VertexArray:
         """ Vertex array from attributes and optional index array. Vertex
             Attributes should be list of arrays with one row per vertex. """
 
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
+
         # create vertex array object, bind it
         self.glid = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.glid)
@@ -101,6 +104,8 @@ class VertexArray:
             self.arguments = (index_buffer.size, GL.GL_UNSIGNED_INT, None)
 
     def execute(self, primitive):
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
         """ draw a vertex array, either as direct array or indexed array """
         GL.glBindVertexArray(self.glid)
         self.draw_command(primitive, *self.arguments)
@@ -246,7 +251,7 @@ class GLFWTrackball(Trackball):
 class Viewer(Node):
     """ GLFW viewer window, with classic initialization & graphics loop """
 
-    def __init__(self, width=640, height=480):
+    def __init__(self, width=1280, height=720):
         super().__init__()
 
         # version hints: create GL window with >= OpenGL 3.3 and core profile
@@ -267,6 +272,10 @@ class Viewer(Node):
         print('OpenGL', GL.glGetString(GL.GL_VERSION).decode() + ', GLSL',
               GL.glGetString(GL.GL_SHADING_LANGUAGE_VERSION).decode() +
               ', Renderer', GL.glGetString(GL.GL_RENDERER).decode())
+        
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
+        GL.glFrontFace(GL.GL_CCW)
 
         # initialize GL by setting viewport and default render characteristics
         GL.glClearColor(0.1, 0.1, 0.1, 0.1)
@@ -281,9 +290,16 @@ class Viewer(Node):
 
     def run(self):
         """ Main render loop for this OpenGL window """
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
+        GL.glFrontFace(GL.GL_CCW)
         while not glfw.window_should_close(self.win):
             # clear draw buffer and depth buffer (<-TP2)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+            GL.glEnable(GL.GL_CULL_FACE)
+            GL.glCullFace(GL.GL_BACK)
+            GL.glFrontFace(GL.GL_CCW)
 
             win_size = glfw.get_window_size(self.win)
             view = self.trackball.view_matrix()
@@ -350,6 +366,7 @@ class TexturedPlane(Mesh):
         vertices = 100 * np.array(
             ((-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)), np.float32)
         faces = np.array(((0, 1, 2), (0, 2, 3)), np.uint32)
+        
         super().__init__(shader, [vertices], faces)
 
         loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
@@ -415,7 +432,9 @@ class TexturedMesh(Mesh):
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
         GL.glUseProgram(self.shader.glid)
-
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
+        GL.glFrontFace(GL.GL_CCW)
         # texture access setups
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.texture.glid)
@@ -473,7 +492,7 @@ def load_skybox(file, shader, tex_files=None):
 
     # print(skyboxVertices)
 
-    cubemapTexture = SkyboxTexture(tex_files).glid
+    cubemapTexture = SkyboxTexture(tex_files)
 
     glid = GL.glGenVertexArrays(1)
     buffer = GL.glGenBuffers(1)
@@ -484,10 +503,21 @@ def load_skybox(file, shader, tex_files=None):
     GL.glVertexAttribPointer(
                     0, 3, GL.GL_FLOAT, False, 0, None)
 
-    while True:
-        GL.glClearColor(0.1, 0.1, 0.1, 1.0)
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-    # GL.glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0)
+    GL.glUseProgram(shader.glid)
+    # texture access setups
+    GL.glActiveTexture(GL.GL_TEXTURE0)
+    GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, cubemapTexture.glid)
+
+    names = ['view', 'projection', 'model']
+    loc = {n: GL.glGetUniformLocation(shader.glid, n) for n in names}
+
+    GL.glUniformMatrix4fv(loc['view'], 1, True, view)
+    GL.glUniformMatrix4fv(loc['projection'], 1, True, projection)
+    GL.glUniformMatrix4fv(loc['model'], 1, True, model)
+
+    GL.glDrawArrays(GL.GL_TRINAGLES)
+
+
 
 class SkyboxTexture:
     """ Helper class to create and automatically destroy textures """
@@ -528,6 +558,9 @@ class SkyboxTexture:
 
 def load_skybox2(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
+    GL.glEnable(GL.GL_CULL_FACE)
+    GL.glCullFace(GL.GL_BACK)
+    GL.glDisable(GL.GL_DEPTH_TEST)
     try:
         pp = assimpcy.aiPostProcessSteps
         flags = pp.aiProcess_Triangulate | pp.aiProcess_FlipUVs
@@ -587,13 +620,13 @@ def main():
         "./skybox/bottom.jpg",
         "./skybox/front.jpg",
         "./skybox/back.jpg"]
-
+    GL.glEnable(GL.GL_CULL_FACE)
+    GL.glCullFace(GL.GL_BACK)
+    GL.glDisable(GL.GL_DEPTH_TEST)
     for mesh in load_skybox2("./cube/cube.obj", sky_shader, sky_texs):
-        GL.glDisable(GL.GL_DEPTH_TEST)
-        GL.glDepthMask(False)
         viewer.add(mesh)
-    
-    #load_skybox("./cube/cube.obj", sky_shader, sky_texs)
+    GL.glEnable(GL.GL_DEPTH_TEST)
+    # load_skybox("./cube/cube.obj", sky_shader, sky_texs)
 
     # if len(sys.argv) != 2:
     #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'

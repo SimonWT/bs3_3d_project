@@ -453,7 +453,7 @@ def main():
     viewer = Viewer()
     shader = Shader("texture.vert", "texture.frag")
 
-    light_dir = (0, -1, 0)
+    light_dir = (0, 1, 0)
     # viewer.add(*[mesh for file in sys.argv[1:]
     #              for mesh in load_phong_mesh(file, shader, light_dir)])
 
