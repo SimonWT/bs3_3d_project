@@ -403,6 +403,42 @@ class TexturedPlane(Mesh):
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
 
+class WaterPlane(Mesh):
+    """ Simple first textured object """
+
+    def __init__(self, shader):
+
+        vertices = 100 * np.array(
+            ((-1, 0, -1), (1, 0, -1), (1, 0, 1), (-1, 0, 1)), np.float32)
+        faces = np.array(((3, 2, 0), (2, 1, 0)), np.uint32)
+        super().__init__(shader, [vertices], faces)
+
+        loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
+        self.loc['diffuse_map'] = loc
+
+        # setup texture and upload it to GPU
+        #self.texture = Texture("./grass.png", self.wrap_mode, *self.filter_mode)
+
+    # def key_handler(self, key):
+    #     # some interactive elements
+    #     if key == glfw.KEY_F6:
+    #         self.wrap_mode = next(self.wrap)
+    #         self.texture = Texture(
+    #             self.file, self.wrap_mode, *self.filter_mode)
+    #     if key == glfw.KEY_F7:
+    #         self.filter_mode = next(self.filter)
+    #         self.texture = Texture(
+    #             self.file, self.wrap_mode, *self.filter_mode)
+
+    def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+        GL.glUseProgram(self.shader.glid)
+
+        # texture access setups
+        #GL.glActiveTexture(GL.GL_TEXTURE0)
+        #GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
+        GL.glUniform1i(self.loc['diffuse_map'], 0)
+        super().draw(projection, view, model, primitives)
+
 # -------------- Example texture mesh class ----------------------------------
 class TexturedMesh(Mesh):
     """ Simple first textured object """
@@ -607,6 +643,7 @@ def main():
     viewer = Viewer()
     shader = Shader("texture.vert", "texture.frag")
     skybox_shader = Shader("skybox.vert", "skybox.frag")
+    color_shader = Shader("color.vert", "color.frag")
 
     light_dir = (0, -1, 0)
     # viewer.add(*[mesh for file in sys.argv[1:]
@@ -637,6 +674,8 @@ def main():
     cube_shape = Node(transform =translate(0.3, 0.03, 0.03) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
     cube_shape.add(cube)                    # scaled cylinder shape
     viewer.add(cube_shape)
+
+    viewer.add(WaterPlane(color_shader))
 
     skybox = Skybox(skybox_shader)
     skybox_shape = Node()     # make a thin cylinder
