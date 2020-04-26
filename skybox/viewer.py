@@ -16,7 +16,7 @@ import assimpcy                     # 3D resource loader
 from PIL import Image               # load images for textures
 from itertools import cycle
 
-from transform import Trackball, identity, vec
+from transform import Trackball, identity, vec, scale, translate
 
 
 # ------------ low level OpenGL object wrappers ----------------------------
@@ -511,6 +511,26 @@ class SkyboxTexture:
     def __del__(self):  # delete GL texture from GPU when object dies
         GL.glDeleteTextures(self.glid)
 
+class Skybox(Node):
+    """ Very simple skybox"""
+    def __init__(self, shader):
+        super().__init__()
+        sky_texs = [
+            "./skybox/right.jpg",
+            "./skybox/left.jpg",
+            "./skybox/top.jpg",
+            "./skybox/bottom.jpg",
+            "./skybox/front.jpg",
+            "./skybox/back.jpg"]
+
+        self.add(*load_skybox('./skybox/skybox.obj', shader, sky_texs))  # just load cylinder from file
+
+class Cube(Node):
+    """ Very simple cube"""
+    def __init__(self, shader, texture):
+        super().__init__()
+        self.add(*load_textured('./cube/cube.obj', shader, texture))  # just load cube from file
+
 def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
     try:
@@ -586,7 +606,7 @@ def main():
     """ create a window, add scene objects, then run rendering loop """
     viewer = Viewer()
     shader = Shader("texture.vert", "texture.frag")
-    sky_shader = Shader("skybox.vert", "skybox.frag")
+    skybox_shader = Shader("skybox.vert", "skybox.frag")
 
     light_dir = (0, -1, 0)
     # viewer.add(*[mesh for file in sys.argv[1:]
@@ -596,20 +616,33 @@ def main():
     # for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
     #     viewer.add(mesh)
 
-    sky_texs = [
-        "./skybox/right.jpg",
-        "./skybox/left.jpg",
-        "./skybox/top.jpg",
-        "./skybox/bottom.jpg",
-        "./skybox/front.jpg",
-        "./skybox/back.jpg"]
+    # sky_texs = [
+    #     "./skybox/right.jpg",
+    #     "./skybox/left.jpg",
+    #     "./skybox/top.jpg",
+    #     "./skybox/bottom.jpg",
+    #     "./skybox/front.jpg",
+    #     "./skybox/back.jpg"]
 
-    for mesh in load_skybox("./skybox/skybox.obj", sky_shader, sky_texs):
-        viewer.add(mesh)
+    # for mesh in load_skybox("./skybox/skybox.obj", sky_shader, sky_texs):
+    #     viewer.add(mesh)
 
      # viewer.add(TexturedPlane("./grass.png", shader))
-    for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
-        viewer.add(mesh)
+    # for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
+    #     viewer.add(mesh)
+
+     # construct our robot arm hierarchy for drawing in viewer
+    
+    cube = Cube(shader, "./cube/cube.png")
+    cube_shape = Node(transform =translate(0.3, 0.03, 0.03) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
+    cube_shape.add(cube)                    # scaled cylinder shape
+    viewer.add(cube_shape)
+
+    skybox = Skybox(skybox_shader)
+    skybox_shape = Node()     # make a thin cylinder
+    skybox_shape.add(skybox)                    # scaled cylinder shape
+    viewer.add(skybox_shape)
+
 
     # if len(sys.argv) != 2:
     #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'

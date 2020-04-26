@@ -9,6 +9,11 @@ layout(location = 1) in vec2 pos_texture;
 out vec2 frag_tex_coords;
 
 void main() {
-    gl_Position = projection * view * model * vec4(position, 1);
+    vec4 pos = projection * view * model * vec4(position, 1.0);
+
+    gl_Position = vec4(pos.xy, -pos.w, pos.w);
+
+    //gl_Position = projection * view * model * vec4(position, 1);
+
     frag_tex_coords = pos_texture;
 }
