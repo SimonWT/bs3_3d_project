@@ -16,7 +16,7 @@ import assimpcy                     # 3D resource loader
 from PIL import Image               # load images for textures
 from itertools import cycle
 
-from transform import Trackball, identity, vec, scale, translate
+from transform import Trackball, identity, vec, scale, translate, rotate
 
 
 # ------------ low level OpenGL object wrappers ----------------------------
@@ -416,26 +416,9 @@ class WaterPlane(Mesh):
         loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
         self.loc['diffuse_map'] = loc
 
-        # setup texture and upload it to GPU
-        #self.texture = Texture("./grass.png", self.wrap_mode, *self.filter_mode)
-
-    # def key_handler(self, key):
-    #     # some interactive elements
-    #     if key == glfw.KEY_F6:
-    #         self.wrap_mode = next(self.wrap)
-    #         self.texture = Texture(
-    #             self.file, self.wrap_mode, *self.filter_mode)
-    #     if key == glfw.KEY_F7:
-    #         self.filter_mode = next(self.filter)
-    #         self.texture = Texture(
-    #             self.file, self.wrap_mode, *self.filter_mode)
-
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
         GL.glUseProgram(self.shader.glid)
-
-        # texture access setups
-        #GL.glActiveTexture(GL.GL_TEXTURE0)
-        #GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
+        
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
 
@@ -552,12 +535,12 @@ class Skybox(Node):
     def __init__(self, shader):
         super().__init__()
         sky_texs = [
-            "./skybox/right.jpg",
-            "./skybox/left.jpg",
-            "./skybox/top.jpg",
-            "./skybox/bottom.jpg",
-            "./skybox/front.jpg",
-            "./skybox/back.jpg"]
+            "./skybox/underwater01_RT.jpg",
+            "./skybox/underwater01_LF.jpg",
+            "./skybox/underwater01_UP.jpg",
+            "./skybox/underwater01_DN.jpg",
+            "./skybox/underwater01_FR.jpg",
+            "./skybox/underwater01_BK.jpg"]
 
         self.add(*load_skybox('./skybox/skybox.obj', shader, sky_texs))  # just load cylinder from file
 
@@ -566,6 +549,37 @@ class Cube(Node):
     def __init__(self, shader, texture):
         super().__init__()
         self.add(*load_textured('./cube/cube.obj', shader, texture))  # just load cube from file
+
+class Fish(Node):
+    """ Very simple fish"""
+    def __init__(self, shader, obj, texture):
+        super().__init__()
+        self.add(*load_textured(obj, shader, texture))  # just load cube from file
+
+class Submarine(Node):
+    """ Very simple fish"""
+    def __init__(self, shader,):
+        super().__init__()
+        self.add(*load_textured('./submarine/Seaview submarine/Seaview submarine.obj', shader, './submarine/Seaview submarine/Maps/fna1.jpg'))  # just load cube from file
+
+class RotationControlNode(Node):
+    def __init__(self, key_left, key_right, key_fwd, key_bwd, key_up, key_down, axis, angle=0):
+        super().__init__()
+        x = 0
+        z = 0
+        self.angle, self.axis, self.x, self.z = angle, axis, x, z
+        self.key_left, self.key_right, self.key_fwd, self.key_bwd, self.key_up, self.key_down= key_left, key_right, key_fwd, key_bwd, key_up, key_down
+
+    def key_handler(self, key):
+        self.angle += 0.5 * int(key == self.key_left)
+        self.angle -= 0.5 * int(key == self.key_right)
+        self.x += 0.5 * (key == self.key_fwd)
+        self.x -= 0.5 * (key == self.key_bwd)
+        self.z += 0.5 * (key == self.key_up)
+        self.z -= 0.5 * (key == self.key_down)
+        # self.transform = 
+        self.transform = translate(0, self.z, self.x) @ rotate(self.axis, self.angle)
+        super().key_handler(key)
 
 def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
@@ -675,7 +689,27 @@ def main():
     cube_shape.add(cube)                    # scaled cylinder shape
     viewer.add(cube_shape)
 
-    viewer.add(WaterPlane(color_shader))
+
+    clown_fish = Fish(shader, "./ClownFish/ClownFish2.obj","./ClownFish/ClownFish2_Base_Color.png")
+    clown_fish_shape = Node(transform =translate(3, 1, 1) @ scale(1, 1, 1))     # make a thin cylinder
+    clown_fish_shape.add(clown_fish)                    # scaled cylinder shape
+    viewer.add(clown_fish_shape)
+
+    barracuda_fish = Fish(shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png")
+    barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1))     # make a thin cylinder
+    barracuda_fish_shape.add(barracuda_fish)                    # scaled cylinder shape
+    viewer.add(barracuda_fish_shape)
+
+    submarine = Submarine(shader)
+    submarine_shape = Node(transform =translate(-4, 1, 1) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
+    submarine_shape.add(submarine)                    # scaled cylinder shape
+    #key_fwd, key_bwd, key_up, key_down
+    submarine_rot = RotationControlNode(glfw.KEY_LEFT, glfw.KEY_RIGHT, glfw.KEY_UP, glfw.KEY_DOWN, glfw.KEY_SPACE, glfw.KEY_LEFT_SHIFT , vec(0, 1, 0))
+    submarine_rot.add(submarine_shape)
+    viewer.add(submarine_rot)
+
+
+    # viewer.add(WaterPlane(color_shader))
 
     skybox = Skybox(skybox_shader)
     skybox_shape = Node()     # make a thin cylinder
