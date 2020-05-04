@@ -5,7 +5,7 @@ Python OpenGL practical application.
 # Python built-in modules
 import os                           # os function, i.e. checking file status
 from itertools import cycle
-import sys
+import sys 
 
 # External, non built-in modules
 import OpenGL.GL as GL              # standard Python OpenGL wrapper
@@ -16,8 +16,8 @@ import assimpcy                     # 3D resource loader
 from PIL import Image               # load images for textures
 from itertools import cycle
 
-from transform import Trackball, identity, vec, scale, translate, rotate
-
+from transform import Trackball, identity, vec, scale, translate, rotate, lerp, quaternion_slerp, quaternion_matrix, quaternion, quaternion_from_euler
+from bisect import bisect_left
 
 # ------------ low level OpenGL object wrappers ----------------------------
 class Shader:
@@ -70,8 +70,8 @@ class VertexArray:
         """ Vertex array from attributes and optional index array. Vertex
             Attributes should be list of arrays with one row per vertex. """
 
-        GL.glEnable(GL.GL_CULL_FACE)
-        GL.glCullFace(GL.GL_BACK)
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
 
         # create vertex array object, bind it
         self.glid = GL.glGenVertexArrays(1)
@@ -104,8 +104,8 @@ class VertexArray:
             self.arguments = (index_buffer.size, GL.GL_UNSIGNED_INT, None)
 
     def execute(self, primitive):
-        GL.glEnable(GL.GL_CULL_FACE)
-        GL.glCullFace(GL.GL_BACK)
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
         """ draw a vertex array, either as direct array or indexed array """
         GL.glBindVertexArray(self.glid)
         self.draw_command(primitive, *self.arguments)
@@ -273,14 +273,16 @@ class Viewer(Node):
               GL.glGetString(GL.GL_SHADING_LANGUAGE_VERSION).decode() +
               ', Renderer', GL.glGetString(GL.GL_RENDERER).decode())
         
-        GL.glEnable(GL.GL_CULL_FACE)
-        GL.glCullFace(GL.GL_BACK)
-        GL.glFrontFace(GL.GL_CCW)
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
+        # GL.glFrontFace(GL.GL_CCW)
+
+        GL.glDepthFunc(GL.GL_LEQUAL)
 
         # initialize GL by setting viewport and default render characteristics
         GL.glClearColor(0.1, 0.1, 0.1, 0.1)
         GL.glEnable(GL.GL_DEPTH_TEST)    # depth test now enabled (TP2)
-        GL.glEnable(GL.GL_CULL_FACE)     # backface culling enabled (TP2)
+        # GL.glEnable(GL.GL_CULL_FACE)     # backface culling enabled (TP2)
 
         # initialize trackball
         self.trackball = GLFWTrackball(self.win)
@@ -290,16 +292,16 @@ class Viewer(Node):
 
     def run(self):
         """ Main render loop for this OpenGL window """
-        GL.glEnable(GL.GL_CULL_FACE)
-        GL.glCullFace(GL.GL_BACK)
-        GL.glFrontFace(GL.GL_CCW)
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
+        # GL.glFrontFace(GL.GL_CCW)
         while not glfw.window_should_close(self.win):
             # clear draw buffer and depth buffer (<-TP2)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-            GL.glEnable(GL.GL_CULL_FACE)
-            GL.glCullFace(GL.GL_BACK)
-            GL.glFrontFace(GL.GL_CCW)
+            # GL.glEnable(GL.GL_CULL_FACE)
+            # GL.glCullFace(GL.GL_BACK)
+            # GL.glFrontFace(GL.GL_CCW)
 
             win_size = glfw.get_window_size(self.win)
             view = self.trackball.view_matrix()
@@ -321,6 +323,9 @@ class Viewer(Node):
                 glfw.set_window_should_close(self.win, True)
             if key == glfw.KEY_W:
                 GL.glPolygonMode(GL.GL_FRONT_AND_BACK, next(self.fill_modes))
+
+            if key == glfw.KEY_R:
+                glfw.set_time(0)
 
             self.key_handler(key)
 
@@ -479,15 +484,21 @@ class TexturedCubeMapMesh(Mesh):
                 self.file, self.wrap_mode, *self.filter_mode)
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+
+        GL.glDepthMask(GL.GL_FALSE)
+        GL.glDepthFunc(GL.GL_LEQUAL)
+
         GL.glUseProgram(self.shader.glid)
-        GL.glEnable(GL.GL_CULL_FACE)
-        GL.glCullFace(GL.GL_BACK)
-        GL.glFrontFace(GL.GL_CCW)
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
+        # GL.glFrontFace(GL.GL_CCW)
         # texture access setups
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.texture.glid)
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
+
+        GL.glDepthMask(GL.GL_TRUE)
 
         # leave clean state for easier debugging
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
@@ -544,6 +555,11 @@ class Skybox(Node):
 
         self.add(*load_skybox('./skybox/skybox.obj', shader, sky_texs))  # just load cylinder from file
 
+    # def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+    #     GL.glDepthMask(GL.GL_FALSE)
+    #     super().draw(projection, view, model, primitives)
+    #     GL.glDepthMask(GL.GL_TRUE)
+
 class Cube(Node):
     """ Very simple cube"""
     def __init__(self, shader, texture):
@@ -561,6 +577,13 @@ class Submarine(Node):
     def __init__(self, shader,):
         super().__init__()
         self.add(*load_textured('./submarine/Seaview submarine/Seaview submarine.obj', shader, './submarine/Seaview submarine/Maps/fna1.jpg'))  # just load cube from file
+
+class Diver(Node):
+    """ Very simple fish"""
+    def __init__(self, shader, light_dir):
+        super().__init__()
+        self.add(*load_phong_mesh('./diver/diver.obj', shader, light_dir))  # just load cube from file
+
 
 class RotationControlNode(Node):
     def __init__(self, key_left, key_right, key_fwd, key_bwd, key_up, key_down, axis, angle=0):
@@ -650,39 +673,69 @@ def load_textured(file, shader, tex_file=None):
     print('Loaded %s\t(%d meshes, %d faces)' % (file, len(meshes), size))
     return meshes
 
+class KeyFrames:
+    """ Stores keyframe pairs for any value type with interpolation_function"""
+    def __init__(self, time_value_pairs, interpolation_function=lerp):
+        if isinstance(time_value_pairs, dict):  # convert to list of pairs
+            time_value_pairs = time_value_pairs.items()
+        keyframes = sorted(((key[0], key[1]) for key in time_value_pairs))
+        self.times, self.values = zip(*keyframes)  # pairs list -> 2 lists
+        self.interpolate = interpolation_function
+
+    def value(self, time):
+        """ Computes interpolated value from keyframes, for a given time """
+
+        # 1. ensure time is within bounds else return boundary keyframe
+        if time <= self.times[0] or time >= self.times[-1]:
+            return self.values[0 if time <= self.times[0] else -1]
+        # 2. search for closest index entry in self.times, using bisect_left function
+        _i = bisect_left(self.times, time) # _i is the time index just before t
+
+        # 3. using the retrieved index, interpolate between the two neighboring values
+        # in self.values, using the initially stored self.interpolate function
+        fraction = ( time - self.times[ _i - 1 ] ) / ( self.times[ _i ] - self.times[ _i - 1 ])
+        return self.interpolate( self.values[ _i - 1 ], self.values[ _i ], fraction )
+
+class TransformKeyFrames:
+    """ KeyFrames-like object dedicated to 3D transforms """
+    def __init__(self, translate_keys, rotate_keys): #,rotate_keys, scale_keys
+        """ stores 3 keyframe sets for translation, rotation, scale """
+        self.translate_keys = KeyFrames(translate_keys)
+        self.rotate_keys = KeyFrames(rotate_keys, interpolation_function= quaternion_slerp)
+        # self.scale_keys = KeyFrames(scale_keys)
+
+    def value(self, time):
+        """ Compute each component's interpolation and compose TRS matrix """
+        translate_mat = translate(self.translate_keys.value(time))
+        rotate_mat = quaternion_matrix(self.rotate_keys.value(time))
+        # scale_mat = vec(self.scale_keys.value(time))
+        return translate_mat @ rotate_mat #* scale_mat
+
+class KeyFrameControlNode(Node):
+    """ Place node with transform keys above a controlled subtree """
+    def __init__(self, translate_keys, rotate_keys, scale_keys):
+        super().__init__()
+        self.keyframes = TransformKeyFrames(translate_keys, rotate_keys) #, rotate_keys, scale_keys
+
+    def draw(self, projection, view, model):
+        """ When redraw requested, interpolate our node transform from keys """
+        self.transform = self.keyframes.value(glfw.get_time())
+        super().draw(projection, view, model)
+
 
 # -------------- main program and scene setup --------------------------------
 def main():
     """ create a window, add scene objects, then run rendering loop """
     viewer = Viewer()
     shader = Shader("texture.vert", "texture.frag")
+    phong_shader = Shader("phong.vert", "phong.frag")
     skybox_shader = Shader("skybox.vert", "skybox.frag")
     color_shader = Shader("color.vert", "color.frag")
 
     light_dir = (0, -1, 0)
-    # viewer.add(*[mesh for file in sys.argv[1:]
-    #              for mesh in load_phong_mesh(file, shader, light_dir)])
 
-    # viewer.add(TexturedPlane("./grass.png", shader))
-    # for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
-    #     viewer.add(mesh)
-
-    # sky_texs = [
-    #     "./skybox/right.jpg",
-    #     "./skybox/left.jpg",
-    #     "./skybox/top.jpg",
-    #     "./skybox/bottom.jpg",
-    #     "./skybox/front.jpg",
-    #     "./skybox/back.jpg"]
-
-    # for mesh in load_skybox("./skybox/skybox.obj", sky_shader, sky_texs):
-    #     viewer.add(mesh)
-
-     # viewer.add(TexturedPlane("./grass.png", shader))
-    # for mesh in load_textured("./cube/cube.obj", shader, "./cube/cube.png"):
-    #     viewer.add(mesh)
-
-     # construct our robot arm hierarchy for drawing in viewer
+    skybox = Skybox(skybox_shader)
+    viewer.add(skybox)
     
     cube = Cube(shader, "./cube/cube.png")
     cube_shape = Node(transform =translate(0.3, 0.03, 0.03) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
@@ -696,25 +749,40 @@ def main():
     viewer.add(clown_fish_shape)
 
     barracuda_fish = Fish(shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png")
-    barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1))     # make a thin cylinder
+    barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1) @rotate(vec(0, 1, 0), 90))     # make a thin cylinder
     barracuda_fish_shape.add(barracuda_fish)                    # scaled cylinder shape
-    viewer.add(barracuda_fish_shape)
+    # viewer.add(barracuda_fish_shape)
+
+    translate_keys = {0: vec(1, 1, 1), 2: vec(25, 1, 0), 3: vec(50, 0, 0), 5: vec(25, 0, 0), 7: vec(0, 0, 0)}
+
+    rotate_keys = {1: quaternion(), 4: quaternion_from_euler(0, 180, 0),
+                   6: quaternion(0)}
+
+    scale_keys = {0: 1, 2: 1, 4: 0.5}
+
+    keynode = KeyFrameControlNode(translate_keys, rotate_keys, scale_keys)
+    keynode.add(barracuda_fish_shape)
+    viewer.add(keynode)
 
     submarine = Submarine(shader)
-    submarine_shape = Node(transform =translate(-4, 1, 1) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
+    submarine_shape = Node(transform = translate(-4, 1, 1) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
     submarine_shape.add(submarine)                    # scaled cylinder shape
-    #key_fwd, key_bwd, key_up, key_down
     submarine_rot = RotationControlNode(glfw.KEY_LEFT, glfw.KEY_RIGHT, glfw.KEY_UP, glfw.KEY_DOWN, glfw.KEY_SPACE, glfw.KEY_LEFT_SHIFT , vec(0, 1, 0))
     submarine_rot.add(submarine_shape)
     viewer.add(submarine_rot)
 
+    # diver = Diver(phong_shader, light_dir)
+    # viewer.add(diver)
+
 
     # viewer.add(WaterPlane(color_shader))
 
-    skybox = Skybox(skybox_shader)
-    skybox_shape = Node()     # make a thin cylinder
-    skybox_shape.add(skybox)                    # scaled cylinder shape
-    viewer.add(skybox_shape)
+
+
+    
+    # skybox_shape = Node()     # make a thin cylinder
+    # skybox_shape.add(skybox)            # scaled cylinder shape
+    # viewer.add(skybox_shape)
 
 
     # if len(sys.argv) != 2:
