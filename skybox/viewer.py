@@ -19,6 +19,8 @@ from itertools import cycle
 from transform import Trackball, identity, vec, scale, translate, rotate, lerp, quaternion_slerp, quaternion_matrix, quaternion, quaternion_from_euler
 from bisect import bisect_left
 
+import math
+
 # ------------ low level OpenGL object wrappers ----------------------------
 class Shader:
     """ Helper class to create and automatically destroy shader program """
@@ -427,6 +429,53 @@ class WaterPlane(Mesh):
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
 
+class Ground(Mesh):
+
+    def __init__(self, shader):
+
+        vertices = np.zeros((1,3),np.float32)        
+        normals = np.zeros((1,3), np.uint32)    
+        texCoords= np.zeros((1,2), np.float32)    
+
+        size = 10
+ 
+        x = 0
+        z = 0
+        for i in range(0, size):
+            x = i
+            for j in range(0, size):
+                z = j
+                y = math.sin(x) * math.cos(z)
+                vertices = np.vstack((vertices, np.array(((x, y, z)), np.float32)))
+
+        vertices = 100 *  np.delete(vertices, (0), axis=0)
+        
+        for i in range(0, size - 1):
+            for j in range(0, size - 1):
+                f1 = i * size + j
+                f2 = i * size + 1 + j 
+                f3 = (i + 1) * size + j
+                
+                f4 = f3
+                f5 = f2
+                f6 = (i + 1) * size + 1 + j
+
+                normals = np.vstack((normals, np.array(((f1, f2, f3), (f4, f5, f6)), np.uint32)))
+
+        faces = np.delete(normals, (0), axis=0)
+
+        super().__init__(shader, [vertices], faces)
+
+        loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
+        self.loc['diffuse_map'] = loc
+
+    def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+        GL.glUseProgram(self.shader.glid)
+        
+        GL.glUniform1i(self.loc['diffuse_map'], 0)
+        super().draw(projection, view, model, primitives)
+
+
 # -------------- Example texture mesh class ----------------------------------
 class TexturedMesh(Mesh):
     """ Simple first textured object """
@@ -776,6 +825,10 @@ def main():
 
 
     # viewer.add(WaterPlane(color_shader))
+    ground = Ground(color_shader)
+    ground_node = Node(transform = translate(-500, -100, -500) @ scale(1, 1, 1))
+    ground_node.add(ground)
+    viewer.add(ground_node)
 
 
 
