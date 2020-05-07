@@ -72,9 +72,6 @@ class VertexArray:
         """ Vertex array from attributes and optional index array. Vertex
             Attributes should be list of arrays with one row per vertex. """
 
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
-
         # create vertex array object, bind it
         self.glid = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.glid)
@@ -106,8 +103,6 @@ class VertexArray:
             self.arguments = (index_buffer.size, GL.GL_UNSIGNED_INT, None)
 
     def execute(self, primitive):
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
         """ draw a vertex array, either as direct array or indexed array """
         GL.glBindVertexArray(self.glid)
         self.draw_command(primitive, *self.arguments)
@@ -275,9 +270,6 @@ class Viewer(Node):
               GL.glGetString(GL.GL_SHADING_LANGUAGE_VERSION).decode() +
               ', Renderer', GL.glGetString(GL.GL_RENDERER).decode())
         
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
-        # GL.glFrontFace(GL.GL_CCW)
 
         GL.glDepthFunc(GL.GL_LEQUAL)
 
@@ -431,9 +423,10 @@ class WaterPlane(Mesh):
 
 class Ground(Mesh):
 
-    def __init__(self, shader):
+    def __init__(self, shader, file):
 
-        vertices = np.zeros((1,3),np.float32)        
+        vertices = np.zeros((1,3),np.float32)    
+        faces = np.zeros((1,3), np.uint32) 
         normals = np.zeros((1,3), np.uint32)    
         texCoords= np.zeros((1,2), np.float32)    
 
@@ -455,25 +448,62 @@ class Ground(Mesh):
                 f1 = i * size + j
                 f2 = i * size + 1 + j 
                 f3 = (i + 1) * size + j
+
+                texCoords = np.vstack((texCoords, np.array(((0, 1), (0,0), (1,0)), np.float32) ))
                 
                 f4 = f3
                 f5 = f2
                 f6 = (i + 1) * size + 1 + j
 
-                normals = np.vstack((normals, np.array(((f1, f2, f3), (f4, f5, f6)), np.uint32)))
+                texCoords = np.vstack((texCoords, np.array(((0, 1), (0,0), (1,0)), np.float32) ))
 
-        faces = np.delete(normals, (0), axis=0)
+                faces = np.vstack((faces, np.array(((f1, f2, f3), (f4, f5, f6)), np.uint32)))
 
-        super().__init__(shader, [vertices], faces)
+        faces = np.delete(faces, (0), axis=0)
+        texCoords = np.delete(texCoords, (0), axis=0)
+
+        # print(texCoords)
+
+        super().__init__(shader, [vertices, texCoords], faces)
 
         loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
         self.loc['diffuse_map'] = loc
 
+        # interactive toggles
+        self.wrap = cycle([GL.GL_REPEAT, GL.GL_MIRRORED_REPEAT,
+                           GL.GL_CLAMP_TO_BORDER, GL.GL_CLAMP_TO_EDGE])
+        self.filter = cycle([(GL.GL_NEAREST, GL.GL_NEAREST),
+                             (GL.GL_LINEAR, GL.GL_LINEAR),
+                             (GL.GL_LINEAR, GL.GL_LINEAR_MIPMAP_LINEAR)])
+        self.wrap_mode, self.filter_mode = next(self.wrap), next(self.filter)
+        self.file = file
+
+        # setup texture and upload it to GPU
+        self.texture = Texture(file, self.wrap_mode, *self.filter_mode)
+    
+    def key_handler(self, key):
+        # some interactive elements
+        if key == glfw.KEY_F8:
+            self.wrap_mode = next(self.wrap)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+        if key == glfw.KEY_F9:
+            self.filter_mode = next(self.filter)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
         GL.glUseProgram(self.shader.glid)
-        
+
+        GL.glUniformMatrix4fv
+        # texture access setups
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
+
+         # leave clean state for easier debugging
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        GL.glUseProgram(0)
+
 
 # -------------- Example texture mesh class ----------------------------------
 class TexturedMesh(Mesh):
@@ -486,6 +516,14 @@ class TexturedMesh(Mesh):
         self.loc['diffuse_map'] = loc
         # setup texture and upload it to GPU
         self.texture = texture
+
+         # interactive toggles
+        self.wrap = cycle([GL.GL_REPEAT, GL.GL_MIRRORED_REPEAT,
+                           GL.GL_CLAMP_TO_BORDER, GL.GL_CLAMP_TO_EDGE])
+        self.filter = cycle([(GL.GL_NEAREST, GL.GL_NEAREST),
+                             (GL.GL_LINEAR, GL.GL_LINEAR),
+                             (GL.GL_LINEAR, GL.GL_LINEAR_MIPMAP_LINEAR)])
+        self.wrap_mode, self.filter_mode = next(self.wrap), next(self.filter)
 
     def key_handler(self, key):
         # some interactive elements
@@ -520,16 +558,16 @@ class TexturedCubeMapMesh(Mesh):
         # setup texture and upload it to GPU
         self.texture = texture
 
-    def key_handler(self, key):
-        # some interactive elements
-        if key == glfw.KEY_F6:
-            self.wrap_mode = next(self.wrap)
-            self.texture = Texture(
-                self.file, self.wrap_mode, *self.filter_mode)
-        if key == glfw.KEY_F7:
-            self.filter_mode = next(self.filter)
-            self.texture = Texture(
-                self.file, self.wrap_mode, *self.filter_mode)
+    # def key_handler(self, key):
+    #     # some interactive elements
+    #     if key == glfw.KEY_F6:
+    #         self.wrap_mode = next(self.wrap)
+    #         self.texture = Texture(
+    #             self.file, self.wrap_mode, *self.filter_mode)
+    #     if key == glfw.KEY_F7:
+    #         self.filter_mode = next(self.filter)
+    #         self.texture = Texture(
+    #             self.file, self.wrap_mode, *self.filter_mode)
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
 
@@ -537,9 +575,6 @@ class TexturedCubeMapMesh(Mesh):
         GL.glDepthFunc(GL.GL_LEQUAL)
 
         GL.glUseProgram(self.shader.glid)
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
-        # GL.glFrontFace(GL.GL_CCW)
         # texture access setups
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.texture.glid)
@@ -602,11 +637,6 @@ class Skybox(Node):
             "./skybox/underwater01_BK.jpg"]
 
         self.add(*load_skybox('./skybox/skybox.obj', shader, sky_texs))  # just load cylinder from file
-
-    # def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
-    #     GL.glDepthMask(GL.GL_FALSE)
-    #     super().draw(projection, view, model, primitives)
-    #     GL.glDepthMask(GL.GL_TRUE)
 
 class Cube(Node):
     """ Very simple cube"""
@@ -714,6 +744,7 @@ def load_textured(file, shader, tex_file=None):
         mat = scene.mMaterials[mesh.mMaterialIndex].properties
         assert mat['diffuse_map'], "Trying to map using a textureless material"
         attributes = [mesh.mVertices, mesh.mTextureCoords[0]]
+        print(mesh.mTextureCoords[0])
         mesh = TexturedMesh(shader, mat['diffuse_map'], attributes, mesh.mFaces)
         meshes.append(mesh)
 
@@ -824,12 +855,13 @@ def main():
 
 
     # viewer.add(WaterPlane(color_shader))
-    ground = Ground(color_shader)
+    ground = Ground(shader, "./skybox/underwater01_DN.jpg")
     ground_node = Node(transform = translate(-500, -100, -500) @ scale(1, 1, 1))
     ground_node.add(ground)
     viewer.add(ground_node)
 
-
+    # plane = TexturedPlane('./grass.png', shader)
+    # viewer.add(plane)
 
     
     # skybox_shape = Node()     # make a thin cylinder
