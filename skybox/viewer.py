@@ -475,7 +475,6 @@ class Ground(Mesh):
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
 
-
 # -------------- Example texture mesh class ----------------------------------
 class TexturedMesh(Mesh):
     """ Simple first textured object """
@@ -820,8 +819,8 @@ def main():
     submarine_rot.add(submarine_shape)
     viewer.add(submarine_rot)
 
-    # diver = Diver(phong_shader, light_dir)
-    # viewer.add(diver)
+    diver = Diver(phong_shader, light_dir)
+    viewer.add(diver)
 
 
     # viewer.add(WaterPlane(color_shader))
