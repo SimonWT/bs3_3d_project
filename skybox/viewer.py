@@ -449,13 +449,13 @@ class Ground(Mesh):
                 f2 = i * size + 1 + j 
                 f3 = (i + 1) * size + j
 
-                texCoords = np.vstack((texCoords, np.array(((0, 1), (0,0), (1,0)), np.float32) ))
+                texCoords = np.vstack((texCoords, np.array(((0,.1), (.1,.1), (0,0)), np.float32) ))
                 
                 f4 = f3
                 f5 = f2
                 f6 = (i + 1) * size + 1 + j
 
-                texCoords = np.vstack((texCoords, np.array(((0, 1), (0,0), (1,0)), np.float32) ))
+                texCoords = np.vstack((texCoords, np.array(((0, .2), (.2,.3), (0,0)), np.float32) ))
 
                 faces = np.vstack((faces, np.array(((f1, f2, f3), (f4, f5, f6)), np.uint32)))
 
