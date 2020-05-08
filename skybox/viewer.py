@@ -810,6 +810,11 @@ class KeyFrameControlNode(Node):
         self.transform = self.keyframes.value(glfw.get_time())
         super().draw(projection, view, model)
 
+class ProdecuralAnimationNode(Node):
+
+    def draw(self, projection, view, model):
+        self.transform = translate(0, 3*math.sin(glfw.get_time()), glfw.get_time() % 1000000)
+        super().draw(projection, view, model)
 
 # -------------- main program and scene setup --------------------------------
 def main():
@@ -830,7 +835,7 @@ def main():
     viewer.add(ground)
     
     cube = Cube(shader, "./cube/cube.png")
-    cube_shape = Node(transform =translate(0.3, 0.03, 0.03) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
+    cube_shape = Node(transform =translate(0.3, 0.03, 10) @ scale(1, 1, 1))     # make a thin cylinder
     cube_shape.add(cube)                    # scaled cylinder shape
     viewer.add(cube_shape)
 
@@ -838,7 +843,11 @@ def main():
     clown_fish = Fish(shader, "./ClownFish/ClownFish2.obj","./ClownFish/ClownFish2_Base_Color.png")
     clown_fish_shape = Node(transform =translate(3, 1, 1) @ scale(1, 1, 1))     # make a thin cylinder
     clown_fish_shape.add(clown_fish)                    # scaled cylinder shape
-    viewer.add(clown_fish_shape)
+    # viewer.add(clown_fish_shape)
+
+    clown_anim = ProdecuralAnimationNode()
+    clown_anim.add(clown_fish_shape)
+    viewer.add(clown_anim)
 
     barracuda_fish = Fish(shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png")
     barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1) @rotate(vec(0, 1, 0), 90))     # make a thin cylinder
