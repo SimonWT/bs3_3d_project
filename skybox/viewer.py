@@ -430,15 +430,20 @@ class Ground(Mesh):
         normals = np.zeros((1,3), np.uint32)    
         texCoords= np.zeros((1,2), np.float32)    
 
-        size = 10
+        size = 100
+
+        shift_y = -5
+        shift_x= -50
+        shift_z = -50
  
-        x = 0
-        z = 0
+        x = -1
+        z = -1
         for i in range(0, size):
-            x = i
+            x = i + shift_x
+            print(x, i)
             for j in range(0, size):
-                z = j
-                y = math.sin(x) * math.cos(z)
+                z = j + shift_z
+                y = math.sin(x) * math.cos(z) + shift_y
                 vertices = np.vstack((vertices, np.array(((x, y, z)), np.float32)))
 
         vertices = 100 *  np.delete(vertices, (0), axis=0)
@@ -462,7 +467,6 @@ class Ground(Mesh):
         faces = np.delete(faces, (0), axis=0)
         texCoords = np.delete(texCoords, (0), axis=0)
 
-        # print(texCoords)
 
         super().__init__(shader, [vertices, texCoords], faces)
 
@@ -491,6 +495,10 @@ class Ground(Mesh):
             self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+
+        GL.glDepthMask(GL.GL_FALSE)
+        GL.glDepthFunc(GL.GL_LEQUAL)
+
         GL.glUseProgram(self.shader.glid)
 
         GL.glUniformMatrix4fv
@@ -499,6 +507,8 @@ class Ground(Mesh):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
         GL.glUniform1i(self.loc['diffuse_map'], 0)
         super().draw(projection, view, model, primitives)
+
+        GL.glDepthMask(GL.GL_TRUE)
 
          # leave clean state for easier debugging
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
@@ -744,7 +754,6 @@ def load_textured(file, shader, tex_file=None):
         mat = scene.mMaterials[mesh.mMaterialIndex].properties
         assert mat['diffuse_map'], "Trying to map using a textureless material"
         attributes = [mesh.mVertices, mesh.mTextureCoords[0]]
-        print(mesh.mTextureCoords[0])
         mesh = TexturedMesh(shader, mat['diffuse_map'], attributes, mesh.mFaces)
         meshes.append(mesh)
 
@@ -810,11 +819,15 @@ def main():
     phong_shader = Shader("phong.vert", "phong.frag")
     skybox_shader = Shader("skybox.vert", "skybox.frag")
     color_shader = Shader("color.vert", "color.frag")
+    ground_shader = Shader("ground.vert", "ground.frag")
 
     light_dir = (0, -1, 0)
 
     skybox = Skybox(skybox_shader)
     viewer.add(skybox)
+
+    ground = Ground(ground_shader, "./skybox/underwater01_DN.jpg")
+    viewer.add(ground)
     
     cube = Cube(shader, "./cube/cube.png")
     cube_shape = Node(transform =translate(0.3, 0.03, 0.03) @ scale(0.1, 0.1, 0.1))     # make a thin cylinder
@@ -850,15 +863,13 @@ def main():
     submarine_rot.add(submarine_shape)
     viewer.add(submarine_rot)
 
-    diver = Diver(phong_shader, light_dir)
-    viewer.add(diver)
+    # diver = Diver(phong_shader, light_dir)
+    # viewer.add(diver)
 
 
     # viewer.add(WaterPlane(color_shader))
-    ground = Ground(shader, "./skybox/underwater01_DN.jpg")
-    ground_node = Node(transform = translate(-500, -100, -500) @ scale(1, 1, 1))
-    ground_node.add(ground)
-    viewer.add(ground_node)
+    # ground = Ground(ground_shader, "./skybox/underwater01_DN.jpg")
+    # viewer.add(ground)
 
     # plane = TexturedPlane('./grass.png', shader)
     # viewer.add(plane)

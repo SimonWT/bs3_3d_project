@@ -16,6 +16,7 @@ void main()
 
     //gl_Position = vec4(pos.xy, pos.w, pos.w);
     gl_Position = pos.xyww;
+    //gl_Position = vec4(pos.xy, pos.z, pos.w);
 
     TexCoords = aPos;
 
