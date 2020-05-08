@@ -7,3 +7,4 @@ out vec4 out_color;
 void main() {
     out_color = texture(diffuse_map, frag_tex_coords);
 }
+

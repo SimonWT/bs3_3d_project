@@ -440,7 +440,6 @@ class Ground(Mesh):
         z = -1
         for i in range(0, size):
             x = i + shift_x
-            print(x, i)
             for j in range(0, size):
                 z = j + shift_z
                 y = math.sin(x) * math.cos(z) + shift_y
@@ -813,8 +812,15 @@ class KeyFrameControlNode(Node):
 class ProdecuralAnimationNode(Node):
 
     def draw(self, projection, view, model):
-        self.transform = translate(0, 3*math.sin(glfw.get_time()), glfw.get_time() % 1000000)
+        self.transform = translate(0, 3 * math.sin(glfw.get_time()), glfw.get_time() % 1000000)
         super().draw(projection, view, model)
+
+class ProdecuralAnimationNode2(Node):
+        
+    def draw(self, projection, view, model):
+        self.transform = translate(4*math.sin(glfw.get_time()), 3 * math.sin(glfw.get_time()), 4*math.cos(glfw.get_time()))
+        super().draw(projection, view, model)
+
 
 # -------------- main program and scene setup --------------------------------
 def main():
@@ -875,23 +881,24 @@ def main():
     # diver = Diver(phong_shader, light_dir)
     # viewer.add(diver)
 
+    b1 = Node(transform = translate(1, 2, 20))
+    b1.add(barracuda_fish)
 
-    # viewer.add(WaterPlane(color_shader))
-    # ground = Ground(ground_shader, "./skybox/underwater01_DN.jpg")
-    # viewer.add(ground)
+    b2 = Node(transform = translate(4, 4, 23))
+    b2.add(barracuda_fish)
 
-    # plane = TexturedPlane('./grass.png', shader)
-    # viewer.add(plane)
+    b3 = Node(transform = translate(3, 3, 25))
+    b3.add(barracuda_fish)
 
-    
-    # skybox_shape = Node()     # make a thin cylinder
-    # skybox_shape.add(skybox)            # scaled cylinder shape
-    # viewer.add(skybox_shape)
+    b_group = Node()
+    b_group.add(b1, b2, b3)
+
+    b_anim = ProdecuralAnimationNode2()
+    b_anim.add(b_group)
+
+    viewer.add(b_anim)
 
 
-    # if len(sys.argv) != 2:
-    #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
-    #           ' format supported by assimp.' % (sys.argv[0],))
 
     # start rendering loop
     viewer.run()
