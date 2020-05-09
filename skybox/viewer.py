@@ -191,6 +191,62 @@ class PhongMesh(Mesh):
 
         super().draw(projection, view, model, primitives)
 
+class TexturedPhongMesh(Mesh):
+    """ Simple first textured object """
+
+    def __init__(self, shader, texture, attributes, index=None,
+                 light_dir=(0, -1, 0),   # directionnal light (in world coords)
+                 k_a=(0, 0, 0), k_d=(1, 1, 0), k_s=(1, 1, 1), s=16.):
+
+        super().__init__(shader, attributes, index)
+        self.light_dir = light_dir
+        self.k_a, self.k_d, self.k_s, self.s = k_a, k_d, k_s, s
+
+        names = ['light_dir', 'k_a', 's', 'k_s', 'k_d', 'w_camera_position']
+
+        loc = GL.glGetUniformLocation(shader.glid, 'diffuse_map')
+        self.loc['diffuse_map'] = loc
+        loc = {n: GL.glGetUniformLocation(shader.glid, n) for n in names}
+        self.loc.update(loc)
+        # setup texture and upload it to GPU
+        self.texture = texture
+
+    def key_handler(self, key):
+        # some interactive elements
+        if key == glfw.KEY_F6:
+            self.wrap_mode = next(self.wrap)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+        if key == glfw.KEY_F7:
+            self.filter_mode = next(self.filter)
+            self.texture = Texture(self.file, self.wrap_mode, *self.filter_mode)
+
+    def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
+        GL.glUseProgram(self.shader.glid)
+
+        # texture access setups
+        GL.glActiveTexture(GL.GL_TEXTURE0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture.glid)
+        GL.glUniform1i(self.loc['diffuse_map'], 0)
+
+        # setup light parameters
+        GL.glUniform3fv(self.loc['light_dir'], 1, self.light_dir)
+
+        # setup material parameters
+        GL.glUniform3fv(self.loc['k_a'], 1, self.k_a)
+        GL.glUniform3fv(self.loc['k_d'], 1, self.k_d)
+        GL.glUniform3fv(self.loc['k_s'], 1, self.k_s)
+        GL.glUniform1f(self.loc['s'], max(self.s, 0.001))
+
+        # world camera position for Phong illumination specular component
+        w_camera_position = (0, 0, 0)   # TODO: to update
+        GL.glUniform3fv(self.loc['w_camera_position'], 1, w_camera_position)
+
+        super().draw(projection, view, model, primitives)
+
+        # leave clean state for easier debugging
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        GL.glUseProgram(0)
+    
 
 # -------------- 3D resource loader -----------------------------------------
 def load_phong_mesh(file, shader, light_dir):
@@ -208,6 +264,48 @@ def load_phong_mesh(file, shader, light_dir):
     for mesh in scene.mMeshes:
         mat = scene.mMaterials[mesh.mMaterialIndex].properties
         mesh = PhongMesh(shader, [mesh.mVertices, mesh.mNormals], mesh.mFaces,
+                         k_d=mat.get('COLOR_DIFFUSE', (1, 1, 1)),
+                         k_s=mat.get('COLOR_SPECULAR', (1, 1, 1)),
+                         k_a=mat.get('COLOR_AMBIENT', (0, 0, 0)),
+                         s=mat.get('SHININESS', 16.),
+                         light_dir=light_dir)
+        meshes.append(mesh)
+
+    size = sum((mesh.mNumFaces for mesh in scene.mMeshes))
+    print('Loaded %s\t(%d meshes, %d faces)' % (file, len(meshes), size))
+    return meshes
+
+def load_phong_tex_mesh(file, shader, tex_file, light_dir):
+    """ load resources from file using assimp, return list of ColorMesh """
+    try:
+        pp = assimpcy.aiPostProcessSteps
+        flags = pp.aiProcess_Triangulate | pp.aiProcess_GenSmoothNormals | pp.aiProcess_FlipUVs
+        scene = assimpcy.aiImportFile(file, flags)
+    except assimpcy.all.AssimpError as exception:
+        print('ERROR loading', file + ': ', exception.args[0].decode())
+        return []
+
+    # Note: embedded textures not supported at the moment
+    path = os.path.dirname(file) if os.path.dirname(file) != '' else './'
+    for mat in scene.mMaterials:
+        if not tex_file and 'TEXTURE_BASE' in mat.properties:  # texture token
+            name = os.path.basename(mat.properties['TEXTURE_BASE'])
+            # search texture in file's whole subdir since path often screwed up
+            paths = os.walk(path, followlinks=True)
+            found = [os.path.join(d, f) for d, _, n in paths for f in n
+                     if name.startswith(f) or f.startswith(name)]
+            assert found, 'Cannot find texture %s in %s subtree' % (name, path)
+            tex_file = found[0]
+        if tex_file:
+            mat.properties['diffuse_map'] = Texture(tex_file)
+
+    # prepare mesh nodes
+    meshes = []
+    for mesh in scene.mMeshes:
+        mat = scene.mMaterials[mesh.mMaterialIndex].properties
+        assert mat['diffuse_map'], "Trying to map using a textureless material"
+        attributes = [mesh.mVertices, mesh.mNormals, mesh.mTextureCoords[0]]
+        mesh = TexturedPhongMesh(shader, mat['diffuse_map'], attributes, mesh.mFaces,
                          k_d=mat.get('COLOR_DIFFUSE', (1, 1, 1)),
                          k_s=mat.get('COLOR_SPECULAR', (1, 1, 1)),
                          k_a=mat.get('COLOR_AMBIENT', (0, 0, 0)),
@@ -671,6 +769,13 @@ class Diver(Node):
         super().__init__()
         self.add(*load_phong_mesh('./diver/diver.obj', shader, light_dir))  # just load cube from file
 
+class PhongFish(Node):
+    """ Very simple fish"""
+    def __init__(self, shader, obj, texture, light_dir):
+        super().__init__()
+        self.add(*load_phong_tex_mesh(obj, shader, texture, light_dir))  # just load cube from file
+        # self.add(*load_phong_mesh(obj, shader, light_dir))  # just load cube from file
+
 
 class RotationControlNode(Node):
     def __init__(self, key_left, key_right, key_fwd, key_bwd, key_up, key_down, axis, angle=0):
@@ -831,8 +936,9 @@ def main():
     skybox_shader = Shader("skybox.vert", "skybox.frag")
     color_shader = Shader("color.vert", "color.frag")
     ground_shader = Shader("ground.vert", "ground.frag")
+    tex_phong_shader = Shader("tex_phong.vert", "tex_phong.frag")
 
-    light_dir = (0, -1, 0)
+    light_dir = (0, 1, -1)
 
     skybox = Skybox(skybox_shader)
     viewer.add(skybox)
@@ -877,6 +983,10 @@ def main():
     submarine_rot = RotationControlNode(glfw.KEY_LEFT, glfw.KEY_RIGHT, glfw.KEY_UP, glfw.KEY_DOWN, glfw.KEY_SPACE, glfw.KEY_LEFT_SHIFT , vec(0, 1, 0))
     submarine_rot.add(submarine_shape)
     viewer.add(submarine_rot)
+
+
+    phong_fish = PhongFish(tex_phong_shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png", light_dir)
+    viewer.add(phong_fish)
 
     # diver = Diver(phong_shader, light_dir)
     # viewer.add(diver)

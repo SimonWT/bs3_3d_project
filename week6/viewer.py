@@ -448,7 +448,7 @@ class TexturedMesh(Mesh):
         # leave clean state for easier debugging
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
         GL.glUseProgram(0)
-    
+
 class Cylinder(Node):
     """ Very simple cylinder based on practical 2 load function """
     def __init__(self, shader):
