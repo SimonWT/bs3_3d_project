@@ -372,7 +372,7 @@ class Viewer(Node):
         GL.glDepthFunc(GL.GL_LEQUAL)
 
         # initialize GL by setting viewport and default render characteristics
-        GL.glClearColor(0.1, 0.1, 0.1, 0.1)
+        GL.glClearColor(0.61,0.87,1.61, 0.1)
         GL.glEnable(GL.GL_DEPTH_TEST)    # depth test now enabled (TP2)
         # GL.glEnable(GL.GL_CULL_FACE)     # backface culling enabled (TP2)
 
@@ -384,19 +384,13 @@ class Viewer(Node):
 
     def run(self):
         """ Main render loop for this OpenGL window """
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
-        # GL.glFrontFace(GL.GL_CCW)
         while not glfw.window_should_close(self.win):
             # clear draw buffer and depth buffer (<-TP2)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-            # GL.glEnable(GL.GL_CULL_FACE)
-            # GL.glCullFace(GL.GL_BACK)
-            # GL.glFrontFace(GL.GL_CCW)
-
             win_size = glfw.get_window_size(self.win)
             view = self.trackball.view_matrix()
+            # view = view + lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0))
             projection = self.trackball.projection_matrix(win_size)
 
             # draw our scene objects
@@ -665,17 +659,6 @@ class TexturedCubeMapMesh(Mesh):
         # setup texture and upload it to GPU
         self.texture = texture
 
-    # def key_handler(self, key):
-    #     # some interactive elements
-    #     if key == glfw.KEY_F6:
-    #         self.wrap_mode = next(self.wrap)
-    #         self.texture = Texture(
-    #             self.file, self.wrap_mode, *self.filter_mode)
-    #     if key == glfw.KEY_F7:
-    #         self.filter_mode = next(self.filter)
-    #         self.texture = Texture(
-    #             self.file, self.wrap_mode, *self.filter_mode)
-
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
 
         GL.glDepthMask(GL.GL_FALSE)
@@ -693,6 +676,7 @@ class TexturedCubeMapMesh(Mesh):
         # leave clean state for easier debugging
         GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
         GL.glUseProgram(0)
+
 
 class SkyboxTexture:
     """ Helper class to create and automatically destroy textures """
@@ -774,7 +758,6 @@ class PhongFish(Node):
     def __init__(self, shader, obj, texture, light_dir):
         super().__init__()
         self.add(*load_phong_tex_mesh(obj, shader, texture, light_dir))  # just load cube from file
-        # self.add(*load_phong_mesh(obj, shader, light_dir))  # just load cube from file
 
 
 class RotationControlNode(Node):
@@ -796,12 +779,12 @@ class RotationControlNode(Node):
         self.transform = translate(0, self.z, self.x) @ rotate(self.axis, self.angle)
         super().key_handler(key)
     
-    def draw(self, projection, view, model):
-        radius = 10
-        camX = math.sin(glfw.get_time()) * radius
-        camZ = math.cos(glfw.get_time()) * radius
-        #lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0))
-        super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
+    # def draw(self, projection, view, model):
+    #     radius = 10
+    #     camX = math.sin(glfw.get_time()) * radius
+    #     camZ = math.cos(glfw.get_time()) * radius
+    #     #lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0))
+    #     super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
 
 def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
@@ -995,7 +978,14 @@ def main():
 
 
     phong_fish = PhongFish(tex_phong_shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png", light_dir)
-    viewer.add(phong_fish)
+    phong_fish_shape = Node(transform = translate(-1, -1, -1) @ scale(0.1, 0.1, 0.1) @ rotate((0,1,0), 90))
+    phong_fish_shape.add(phong_fish)
+    viewer.add(phong_fish_shape)
+
+    phong_fish_2 = PhongFish(tex_phong_shader, "./fish-new/fish.obj","./fish-new/fish.jpg", light_dir)
+    phong_fish_2_shape = Node(transform = translate(4, 1, -5) @ scale(0.05, 0.05, 0.05))
+    phong_fish_2_shape.add(phong_fish_2)
+    viewer.add(phong_fish_2_shape)
 
     # diver = Diver(phong_shader, light_dir)
     # viewer.add(diver)

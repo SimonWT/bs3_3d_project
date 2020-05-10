@@ -2,9 +2,11 @@
 
 uniform sampler2D diffuse_map;
 in vec2 frag_tex_coords;
+in float visibility; //FOG
 
 out vec4 out_color;
 
 void main() {
     out_color = texture(diffuse_map, frag_tex_coords);
+    out_color = mix(vec4(vec3(0.61,0.87,1.61),1.0), out_color, visibility); //FOG
 }
