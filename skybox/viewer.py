@@ -800,6 +800,7 @@ class RotationControlNode(Node):
         radius = 10
         camX = math.sin(glfw.get_time()) * radius
         camZ = math.cos(glfw.get_time()) * radius
+        #lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0))
         super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
 
 def load_skybox(file, shader, tex_files=None):
