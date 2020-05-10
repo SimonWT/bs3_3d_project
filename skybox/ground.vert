@@ -9,7 +9,6 @@ layout(location = 1) in vec2 pos_texture;
 
 out vec2 frag_tex_coords;
 
-
 out float visibility;
 const float density = 0.00007;
 const float gradient = 1.5;
@@ -32,5 +31,5 @@ void main() {
     float distance = length(posRelToCam.xyz);
     visibility = exp(-pow((distance * density), gradient));
     visibility = clamp(visibility, 0.0, 1.0);
-
+    
 }

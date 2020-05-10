@@ -14,6 +14,11 @@ out vec3 w_position, w_normal;   // in world coordinates
 //for texture
 out vec2 frag_tex_coords;
 
+//for FOG
+out float visibility;
+const float density = 0.007;
+const float gradient = 1.5;
+
 void main() {
     //gl_Position = projection * view * model * vec4(position, 1.0);
 
@@ -28,4 +33,10 @@ void main() {
     w_normal = normalize(nit_matrix * normal);
 
     frag_tex_coords = pos_texture;
+
+    //FOG
+    vec4 posRelToCam = view * model * vec4(position, 1.0);
+    float distance = length(posRelToCam.xyz);
+    visibility = exp(-pow((distance * density), gradient));
+    visibility = clamp(visibility, 0.0, 1.0);
 }

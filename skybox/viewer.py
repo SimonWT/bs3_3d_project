@@ -779,12 +779,8 @@ class RotationControlNode(Node):
         self.transform = translate(0, self.z, self.x) @ rotate(self.axis, self.angle)
         super().key_handler(key)
     
-    # def draw(self, projection, view, model):
-    #     radius = 10
-    #     camX = math.sin(glfw.get_time()) * radius
-    #     camZ = math.cos(glfw.get_time()) * radius
-    #     #lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0))
-    #     super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
+    def draw(self, projection, view, model):
+        super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
 
 def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
@@ -939,24 +935,23 @@ def main():
     viewer.add(ground)
     
     cube = Cube(shader, "./cube/cube.png")
-    cube_shape = Node(transform =translate(0.3, 0.03, 10) @ scale(1, 1, 1))     # make a thin cylinder
-    cube_shape.add(cube)                    # scaled cylinder shape
+    cube_shape = Node(transform =translate(0.3, 0.03, 10) @ scale(1, 1, 1))  
+    cube_shape.add(cube)                   
     viewer.add(cube_shape)
 
 
     clown_fish = Fish(shader, "./ClownFish/ClownFish2.obj","./ClownFish/ClownFish2_Base_Color.png")
-    clown_fish_shape = Node(transform =translate(3, 1, 1) @ scale(1, 1, 1))     # make a thin cylinder
-    clown_fish_shape.add(clown_fish)                    # scaled cylinder shape
-    # viewer.add(clown_fish_shape)
+    clown_fish_shape = Node(transform =translate(3, 1, 1) @ scale(1, 1, 1))     
+    clown_fish_shape.add(clown_fish)                   
+    viewer.add(clown_fish_shape)
 
     clown_anim = ProdecuralAnimationNode()
     clown_anim.add(clown_fish_shape)
     viewer.add(clown_anim)
 
     barracuda_fish = Fish(shader, "./Barracuda/Barracuda2anim.obj","./Barracuda/Barracuda_Base Color.png")
-    barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1) @rotate(vec(0, 1, 0), 90))     # make a thin cylinder
-    barracuda_fish_shape.add(barracuda_fish)                    # scaled cylinder shape
-    # viewer.add(barracuda_fish_shape)
+    barracuda_fish_shape = Node(transform =translate(1, 2, 1) @ scale(1, 1, 1) @rotate(vec(0, 1, 0), 90))   
+    barracuda_fish_shape.add(barracuda_fish)                   
 
     translate_keys = {0: vec(1, 1, 1), 2: vec(25, 1, 0), 3: vec(50, 0, 0), 5: vec(25, 0, 0), 7: vec(0, 0, 0)}
 
@@ -990,6 +985,8 @@ def main():
     # diver = Diver(phong_shader, light_dir)
     # viewer.add(diver)
 
+
+    # Hierarchical fishes
     b1 = Node(transform = translate(1, 2, 20))
     b1.add(barracuda_fish)
 

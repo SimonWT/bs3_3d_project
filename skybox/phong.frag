@@ -30,5 +30,4 @@ void main() {
     vec3 specular_color = k_s * pow(max(dot(r, v), 0), s);
 
     out_color = vec4(k_a, 1) + vec4(diffuse_color, 1) + vec4(specular_color, 1);
-
 }
