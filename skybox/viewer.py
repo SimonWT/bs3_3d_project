@@ -16,7 +16,7 @@ import assimpcy                     # 3D resource loader
 from PIL import Image               # load images for textures
 from itertools import cycle
 
-from transform import Trackball, identity, vec, scale, translate, rotate, lerp, quaternion_slerp, quaternion_matrix, quaternion, quaternion_from_euler
+from transform import Trackball, identity, vec, scale, translate, rotate, lerp, quaternion_slerp, quaternion_matrix, quaternion, quaternion_from_euler, lookat
 from bisect import bisect_left
 
 import math
@@ -788,13 +788,19 @@ class RotationControlNode(Node):
     def key_handler(self, key):
         self.angle += 0.5 * int(key == self.key_left)
         self.angle -= 0.5 * int(key == self.key_right)
-        self.x += 0.5 * (key == self.key_fwd)
-        self.x -= 0.5 * (key == self.key_bwd)
-        self.z += 0.5 * (key == self.key_up)
-        self.z -= 0.5 * (key == self.key_down)
+        self.x += 1 * (key == self.key_fwd)
+        self.x -= 1 * (key == self.key_bwd)
+        self.z += 1 * (key == self.key_up)
+        self.z -= 1 * (key == self.key_down)
         # self.transform = 
         self.transform = translate(0, self.z, self.x) @ rotate(self.axis, self.angle)
         super().key_handler(key)
+    
+    def draw(self, projection, view, model):
+        radius = 10
+        camX = math.sin(glfw.get_time()) * radius
+        camZ = math.cos(glfw.get_time()) * radius
+        super().draw(projection, lookat(vec(-4, 20, 0), vec(-4, 1, 1), vec(0, 1, 0)), model)
 
 def load_skybox(file, shader, tex_files=None):
     """ load resources from file using assimp, return list of TexturedMesh """
@@ -938,10 +944,12 @@ def main():
     ground_shader = Shader("ground.vert", "ground.frag")
     tex_phong_shader = Shader("tex_phong.vert", "tex_phong.frag")
 
-    light_dir = (0, 1, -1)
+    light_dir = (0, -1, 0)
 
     skybox = Skybox(skybox_shader)
-    viewer.add(skybox)
+    sky_shape = Node(transform = scale(1000,1000,1000))
+    sky_shape.add(skybox)
+    viewer.add(sky_shape)
 
     ground = Ground(ground_shader, "./skybox/underwater01_DN.jpg")
     viewer.add(ground)
